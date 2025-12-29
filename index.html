@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>銀章進度記錄（6分鐘）</title>
+  <style>
+    :root { --bd:#e5e7eb; --txt:#111827; --mut:#6b7280; --ok:#16a34a; --bad:#dc2626; --bg:#f8fafc; }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans HK", "PingFang HK", Arial, sans-serif;
+      background:var(--bg); color:var(--txt);
+    }
+    .wrap{ max-width:980px; margin:24px auto; padding:0 16px; }
+    .card{ background:#fff; border:1px solid var(--bd); border-radius:14px; padding:16px; box-shadow:0 2px 12px rgba(0,0,0,.04); }
+    .grid{ display:grid; gap:12px; }
+    @media(min-width:880px){ .grid{ grid-template-columns: 1.1fr .9fr; } }
+
+    h1{ font-size:20px; margin:0 0 10px; }
+    .sub{ color:var(--mut); font-size:13px; margin:0 0 14px; }
+
+    .timerBox{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .time{
+      font-variant-numeric: tabular-nums;
+      font-size:40px; font-weight:800; letter-spacing:.5px;
+    }
+    .pill{ border:1px solid var(--bd); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--mut); }
+    .btnRow{ display:flex; gap:8px; flex-wrap:wrap; }
+    button{
+      border:1px solid var(--bd); background:#fff; color:var(--txt);
+      padding:10px 12px; border-radius:12px; font-weight:700; cursor:pointer;
+    }
+    button.primary{ background:#111827; color:#fff; border-color:#111827; }
+    button.danger{ background:#fff; border-color:var(--bad); color:var(--bad); }
+    button:disabled{ opacity:.45; cursor:not-allowed; }
+
+    .progressWrap{ display:flex; align-items:center; gap:10px; margin-top:10px; }
+    .bar{ height:10px; background:#eef2ff; border-radius:999px; overflow:hidden; flex:1; border:1px solid var(--bd); }
+    .bar > div{ height:100%; width:0%; background:#4f46e5; transition:width .2s; }
+    .pct{ font-variant-numeric: tabular-nums; font-size:12px; color:var(--mut); min-width:70px; text-align:right; }
+
+    .list{ display:grid; gap:10px; margin-top:12px; }
+    .item{
+      border:1px solid var(--bd); border-radius:14px; padding:12px;
+      display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center;
+    }
+    .name{ font-weight:800; }
+    .meta{ color:var(--mut); font-size:12px; margin-top:4px; }
+    .right{ display:flex; align-items:center; gap:8px; }
+    .count{
+      width:54px; text-align:center; font-variant-numeric: tabular-nums;
+      font-size:18px; font-weight:800; padding:8px 0; border-radius:12px; border:1px solid var(--bd);
+      background:#fff;
+    }
+    .mini{ padding:10px 12px; border-radius:12px; font-weight:900; min-width:44px; }
+    .status{
+      font-size:12px; font-weight:900;
+      padding:6px 10px; border-radius:999px; border:1px solid var(--bd);
+    }
+    .status.ok{ color:var(--ok); border-color:rgba(22,163,74,.35); background:rgba(22,163,74,.08); }
+    .status.bad{ color:var(--bad); border-color:rgba(220,38,38,.35); background:rgba(220,38,38,.08); }
+
+    .history{ margin-top:12px; display:grid; gap:10px; }
+    .histItem{
+      border:1px solid var(--bd); border-radius:14px; padding:12px;
+      display:grid; gap:6px;
+    }
+    .histTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+    .histTop b{ font-size:14px; }
+    .histTop span{ color:var(--mut); font-size:12px; }
+    .smallRow{ color:var(--mut); font-size:12px; line-height:1.4; }
+    .rowBtns{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .note{ color:var(--mut); font-size:12px; margin-top:10px; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="grid">
+      <!-- LEFT: Timer + controls -->
+      <div class="card">
+        <h1>銀章進度記錄（6分鐘）</h1>
+        <p class="sub">每次練習一個 session：倒數 6:00，用 + / − 計次，夠數就自動顯示 Pass。</p>
+
+        <div class="timerBox">
+          <div>
+            <div class="time" id="timeText">06:00</div>
+            <div class="pill" id="timerState">Ready</div>
+          </div>
+          <div class="btnRow">
+            <button class="primary" id="startBtn">Start</button>
+            <button id="pauseBtn" disabled>Pause</button>
+            <button class="danger" id="resetBtn">Reset</button>
+            <button id="saveBtn">Save Session</button>
+            <button id="clearBtn" class="danger">清空全部記錄</button>
+          </div>
+        </div>
+
+        <div class="progressWrap" aria-label="progress">
+          <div class="bar"><div id="barFill"></div></div>
+          <div class="pct" id="pctText">0 / 0</div>
+        </div>
+
+        <div class="note">
+          ✅ 小貼士：如果你想每次自動歸零，按 Reset 就會將計時同所有次數清零（不會刪歷史記錄）。
+        </div>
+      </div>
+
+      <!-- RIGHT: History -->
+      <div class="card">
+        <h1>歷史記錄</h1>
+        <p class="sub">按「Save Session」會記低當刻成績同時間（存在手機/電腦本機）。</p>
+        <div class="history" id="history"></div>
+      </div>
+    </div>
+
+    <!-- Items -->
+    <div class="card" style="margin-top:12px;">
+      <h1>通過項目</h1>
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+
+<script>
+  // ===== Config =====
+  const DURATION_SEC = 6 * 60;
+
+  const tasks = [
+    { id:"rServe", name:"右場開波", required:1 },
+    { id:"lServe", name:"左場開波", required:1 },
+    { id:"rBoast", name:"右場 boast", required:2 },
+    { id:"lBoast", name:"左場 boast", required:2 },
+    { id:"fhStraight", name:"正手直線", required:6 },
+    { id:"bhStraight", name:"反手直線", required:6 },
+    { id:"fhVolley", name:"正手截擊", required:3 },
+    { id:"bhVolley", name:"反手截擊", required:3 },
+  ];
+
+  // ===== State =====
+  const lsKey = "silver_badge_tracker_v1";
+  const state = loadState() || {
+    remaining: DURATION_SEC,
+    running: false,
+    counts: Object.fromEntries(tasks.map(t => [t.id, 0])),
+    history: []
+  };
+
+  let timer = null;
+
+  // ===== DOM =====
+  const timeText = document.getElementById("timeText");
+  const timerState = document.getElementById("timerState");
+  const startBtn = document.getElementById("startBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const listEl = document.getElementById("list");
+  const historyEl = document.getElementById("history");
+  const barFill = document.getElementById("barFill");
+  const pctText = document.getElementById("pctText");
+
+  // ===== Build UI =====
+  function buildList(){
+    listEl.innerHTML = "";
+    tasks.forEach(t => {
+      const item = document.createElement("div");
+      item.className = "item";
+      item.innerHTML = `
+        <div>
+          <div class="name">${t.name}</div>
+          <div class="meta">要求：${t.required} 次</div>
+        </div>
+        <div class="right">
+          <span class="status" id="st_${t.id}">—</span>
+          <button class="mini" aria-label="minus" data-id="${t.id}" data-d="-1">−</button>
+          <div class="count" id="ct_${t.id}">0</div>
+          <button class="mini" aria-label="plus" data-id="${t.id}" data-d="1">＋</button>
+        </div>
+      `;
+      listEl.appendChild(item);
+    });
+
+    listEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-id]");
+      if(!btn) return;
+      const id = btn.dataset.id;
+      const d = Number(btn.dataset.d);
+      updateCount(id, d);
+    });
+  }
+
+  function buildHistory(){
+    historyEl.innerHTML = "";
+    if(!state.history.length){
+      historyEl.innerHTML = `<div class="pill">未有記錄</div>`;
+      return;
+    }
+    state.history.slice().reverse().forEach((h, idxFromEnd) => {
+      const div = document.createElement("div");
+      div.className = "histItem";
+      const total = h.passed + " / " + h.total;
+      div.innerHTML = `
+        <div class="histTop">
+          <b>Session：${total} ✅</b>
+          <span>${new Date(h.time).toLocaleString()}</span>
+        </div>
+        <div class="smallRow">${h.summary}</div>
+      `;
+      historyEl.appendChild(div);
+    });
+  }
+
+  // ===== Logic =====
+  function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+
+  function updateCount(id, delta){
+    const t = tasks.find(x => x.id === id);
+    const cur = state.counts[id] || 0;
+    state.counts[id] = clamp(cur + delta, 0, t.required);
+    render();
+    persist();
+  }
+
+  function formatTime(sec){
+    const m = Math.floor(sec/60);
+    const s = sec % 60;
+    return String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+  }
+
+  function progress(){
+    let passed = 0;
+    let total = tasks.length;
+    tasks.forEach(t => {
+      if((state.counts[t.id] || 0) >= t.required) passed++;
+    });
+    return {passed, total};
+  }
+
+  function render(){
+    timeText.textContent = formatTime(state.remaining);
+
+    const {passed, total} = progress();
+    const pct = total ? Math.round((passed/total)*100) : 0;
+    barFill.style.width = pct + "%";
+    pctText.textContent = `${passed} / ${total} (${pct}%)`;
+
+    tasks.forEach(t => {
+      const ct = document.getElementById("ct_" + t.id);
+      const st = document.getElementById("st_" + t.id);
+      const v = state.counts[t.id] || 0;
+      ct.textContent = v;
+
+      const ok = v >= t.required;
+      st.textContent = ok ? "PASS" : "未夠";
+      st.className = "status " + (ok ? "ok" : "bad");
+    });
+
+    startBtn.disabled = state.running || state.remaining <= 0;
+    pauseBtn.disabled = !state.running;
+    timerState.textContent = state.running ? "Running" : (state.remaining === 0 ? "Time's up" : "Ready");
+  }
+
+  function beep(){
+    // small beep using WebAudio (works on most browsers after user interaction)
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = 880;
+      o.connect(g);
+      g.connect(ctx.destination);
+      g.gain.value = 0.06;
+      o.start();
+      setTimeout(()=>{ o.stop(); ctx.close(); }, 180);
+    }catch(e){}
+  }
+
+  function start(){
+    if(state.running) return;
+    if(state.remaining <= 0) return;
+    state.running = true;
+    timer = setInterval(() => {
+      state.remaining--;
+      if(state.remaining <= 0){
+        state.remaining = 0;
+        stop();
+        beep();
+      }
+      render();
+      persist();
+    }, 1000);
+    render();
+    persist();
+  }
+
+  function stop(){
+    state.running = false;
+    if(timer){ clearInterval(timer); timer = null; }
+    render();
+    persist();
+  }
+
+  function reset(){
+    stop();
+    state.remaining = DURATION_SEC;
+    // counts reset
+    tasks.forEach(t => state.counts[t.id] = 0);
+    render();
+    persist();
+  }
+
+  function saveSession(){
+    const {passed, total} = progress();
+    const parts = tasks.map(t => `${t.name} ${state.counts[t.id]||0}/${t.required}`);
+    const summary = parts.join(" ｜ ");
+    state.history.push({
+      time: Date.now(),
+      passed, total,
+      remaining: state.remaining,
+      summary
+    });
+    persist();
+    buildHistory();
+  }
+
+  function clearAll(){
+    if(!confirm("確定要清空全部記錄（包括歷史）？")) return;
+    stop();
+    state.remaining = DURATION_SEC;
+    tasks.forEach(t => state.counts[t.id] = 0);
+    state.history = [];
+    persist();
+    buildHistory();
+    render();
+  }
+
+  // ===== Persistence =====
+  function persist(){
+    localStorage.setItem(lsKey, JSON.stringify(state));
+  }
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(lsKey);
+      if(!raw) return null;
+      const obj = JSON.parse(raw);
+      // basic sanity
+      if(typeof obj.remaining !== "number") return null;
+      if(!obj.counts) obj.counts = {};
+      if(!Array.isArray(obj.history)) obj.history = [];
+      obj.running = false; // never auto-run on reload
+      return obj;
+    }catch(e){
+      return null;
+    }
+  }
+
+  // ===== Events =====
+  startBtn.addEventListener("click", start);
+  pauseBtn.addEventListener("click", stop);
+  resetBtn.addEventListener("click", reset);
+  saveBtn.addEventListener("click", saveSession);
+  clearBtn.addEventListener("click", clearAll);
+
+  // ===== Init =====
+  buildList();
+  buildHistory();
+  render();
+</script>
+</body>
+</html>
